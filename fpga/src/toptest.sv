@@ -18,7 +18,7 @@ module top( input	logic reset,
     logic [31:0] counter;
     // Module implementation goes here
     
-    always_ff @(posedge clk) begin
+    always_ff @(posedge int_osc) begin
 		if (reset==0)		 begin
 			counter <= 32'd0;
 		end
@@ -30,7 +30,7 @@ module top( input	logic reset,
 		end
 	end
 
-    assign pwm = (counter < 32'd3600) ? 1'b1 : 1'b0; // 1ms pulse for 90 degrees
+    assign pwm = (counter < 32'd36000) ? 1'b1 : 1'b0; // 1ms pulse for 90 degrees
 			
 	
 endmodule
