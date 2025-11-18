@@ -80,9 +80,9 @@ module angledecoder(  input  logic        clk,
     always_comb begin
         // Output logic based on state
         case (state)
-            CLOSED:    angle = 8'd0;      // 0 degrees
-            OPEN:      angle = 8'd90;    // 180 degrees
-            SLIGHT:    angle = 8'd20;     // 90 degrees
+            CLOSED:    angle = 8'd30;      // 30 degrees
+            OPEN:      angle = 8'd150;    // 150 degrees
+            SLIGHT:    angle = 8'd90;     // 90 degrees
             default:   angle = 8'd0;
         endcase
     end
@@ -113,9 +113,9 @@ module pwmgen(  input  logic        clk,
     always_comb begin
         // PWM generation logic based on angle
         case (angle)
-            8'd0:     pwm = (counter < 32'd2400) ? 1'b1 : 1'b0; // 1ms pulse for 0 degrees
-            8'd90:    pwm = (counter < 32'd3600) ? 1'b1 : 1'b0; // 3ms pulse for 180 degrees
-            8'd20:    pwm = (counter < 32'd26400) ? 1'b1 : 1'b0; // 2ms pulse for 90 degrees
+			8'd30:     pwm = (counter < 32'd25000) ? 1'b1 : 1'b0; // 1ms pulse for 30 degrees
+			8'd150:    pwm = (counter < 32'd50000) ? 1'b1 : 1'b0; // 3ms pulse for 150 degrees (seems to be near upper limit)
+			8'd90:    pwm = (counter < 32'd38000) ? 1'b1 : 1'b0; // 2ms pulse for 90 degrees
             default:  pwm = 1'b0; // Default case
         endcase
     end    
