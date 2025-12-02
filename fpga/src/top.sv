@@ -20,9 +20,9 @@ module top( input	logic reset,
 	HSOSC #(.CLKHF_DIV(2'b01))
 		  hf_osc (.CLKHFPU(1'b1), .CLKHFEN(1'b1), .CLKHF(int_osc));
     
-    synchronizer sync_captouch(int_osc, captouch, sync_captouch);
-    synchronizer sync_irblock(int_osc, irblock, sync_irblock);
-    synchronizer sync_estop(int_osc, estop, sync_estop);
+    synchronizer sync_cap(int_osc, captouch, sync_captouch);
+    synchronizer sync_ir(int_osc, irblock, sync_irblock);
+    synchronizer sync_e(int_osc, estop, sync_estop);
     angledecoder angle_dec(int_osc, reset, sync_captouch, sync_irblock, sync_estop, angle);
     pwmgen pwm_generator(int_osc, reset, angle, pwm);
 				
