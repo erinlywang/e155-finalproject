@@ -6,7 +6,7 @@
 // control a servo motor based on whether the capactive sensor
 // has been touched or not. It also displays the angle of the servo
 
-module top( input	logic reset,
+module toptest( input	logic reset,
 			output	logic pwm);
 			
 	logic int_osc;
