@@ -32,7 +32,7 @@ module top( input	logic reset,
     synchronizer sync_cap(int_osc, reset, captouch, sync_captouch);
     synchronizer sync_ir(int_osc, reset, irblock, sync_irblock);
 	synchronizer sync_e(int_osc, reset, estop, sync_estop);
-    angledecoder angledecoder(int_osc, reset, sync_captouch, sync_irblock, sync_estop, angle, led2);
+    angledecoder angledecoder(int_osc, reset, clk_enable, sync_captouch, sync_irblock, sync_estop, angle, led2);
     pwmgen pwm_generator(int_osc, reset, angle, pwm);
 	
 	clk_div clk_div(int_osc, reset, clk_enable);
