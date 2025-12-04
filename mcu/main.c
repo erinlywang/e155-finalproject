@@ -129,6 +129,15 @@ int main(void) {
     // Enable PA6 and PB3 as a GPIO output pin for an LED
     pinMode(6, GPIO_OUTPUT);
     GPIOA->PUPDR |= _VAL2FLD(GPIO_PUPDR_PUPD6, 0b10);
+    //pinMode(19, GPIO_OUTPUT);
+    //GPIOB->PUPDR |= _VAL2FLD(GPIO_PUPDR_PUPD3, 0b10);
+    
+
+    // Enable PA5 as the output of capsense to the FPGA
+    pinMode(5, GPIO_OUTPUT);
+    GPIOA->PUPDR |= _VAL2FLD(GPIO_PUPDR_PUPD5, 0b10);
+
+    // Enable PB3 as the output of ir to the FPGA
     pinMode(19, GPIO_OUTPUT);
     GPIOB->PUPDR |= _VAL2FLD(GPIO_PUPDR_PUPD3, 0b10);
 
@@ -180,42 +189,57 @@ int main(void) {
     SystemState state = STATE_WAIT_FOR_CAP;
 
     while (1) {
+        //int capvalue = 0;
+        //int irvalue = 0;
+        //digitalWrite(19, irvalue);   // to FPGA
         // 1. E-STOP check (bring us back to beginning behavior)
         int estop = digitalRead(12);
         if (estop == 1) {
-            sendString(dbg_usart, "E-Stop pressed, resetting to WAIT_FOR_CAP\r\n");
-            DFP_Pause();                   // stop any playback
             state = STATE_WAIT_FOR_CAP;    // go back to “beginning”
-            continue;                      // restart loop at WAIT_FOR_CAP
         }
 
         switch (state) {
         case STATE_WAIT_FOR_CAP: {
+            
             int capvalue = digitalRead(8);
-            digitalWrite(19, capvalue);   // LED for capsense
-            digitalWrite(5, capvalue);    // to FPGA
+            //digitalWrite(19, capvalue);   // LED for capsense
 
             if (capvalue == 1) {
+                digitalWrite(5, capvalue);    // to FPGA
                 sendString(dbg_usart, "Playing Test Drive\r\n");
                 DFP_PlayFolderTrack(1, 1);
-                delay_ms(10000);
-                DFP_Pause();
+                delay_ms(8000);
+                //DFP_Pause();
+                //int estop = digitalRead(12);
+                // if (estop == 1) {
+                //    state = STATE_WAIT_FOR_CAP;
+                //}
 
                 // Now we are DONE watching cap, forever (until E-stop)
+                digitalWrite(5, 0);
+                delay_ms(500);
                 state = STATE_IR_MODE;
             }
             break;
         }
 
         case STATE_IR_MODE: {
+
+            if (estop == 1) {
+                break;
+            }
+
             int irvalue = handdetection();
             digitalWrite(6, irvalue);    // LED for IR
-            digitalWrite(21, irvalue);   // to FPGA
 
             if (irvalue == 1) {
+                digitalWrite(19, irvalue);   // to FPGA
+                //delay_ms(1000);
                 sendString(dbg_usart, "Playing ROAR\r\n");
                 DFP_PlayFolderTrack(1, 2);
                 delay_ms(2000);
+                digitalWrite(19,0);
+                delay_ms(500);
             }
             break;
         }
@@ -232,40 +256,3 @@ int handdetection(void){
     else
         return 0;   // digital LOW
 }
-
-
-// OLD CODE
-    //  int capvalue = digitalRead(8);
-    //  digitalWrite(19, capvalue); // see feedback on LED
-    //  digitalWrite(5, capvalue);  // send captouch value to FPGA
-      
-
-    //  if (capvalue == 1) {
-    //  sendString(dbg_usart, "Playing Test Drive\r\n");
-    //  DFP_PlayFolderTrack(1, 1);  // folder "01", file "001.mp3" datasheet has format written
-      
-    //  delay_ms(10000);
-
-    //  DFP_Pause();
-
-    //  }
-
-    //  while (1) {
-
-    //  int irvalue = handdetection();
-    //  digitalWrite(6, irvalue);  // see feedback on LED
-    //  digitalWrite(21, irvalue); // send irvalue to FPGA
-      
-
-    //  if (irvalue == 1) {
-    //    sendString(dbg_usart, "Playing ROAR\r\n");
-    //    DFP_PlayFolderTrack(1, 2);
-
-    //    delay_ms(2000);
-    //    }
-      
-    //  }
-
-    //}
-
-
