@@ -33,8 +33,8 @@ module led_pattern(
     input  logic play,  // Signal to play pattern
 	input  logic roar,
     output logic [9:0] leds,
-    output logic led_strip
-);
+    output logic led_strip);
+	
 	  logic [23:0] counter;
 	  logic counter_output;
 
@@ -90,13 +90,13 @@ module led_pattern(
     // Next state logic
     always_comb begin
       case (state)
-        OFF:     if (~play)            		  nextstate = PLAYING;
+        OFF:     if (play)            		  nextstate = PLAYING;
                  else                      	  nextstate = OFF;
         PLAYING: if (pattern_index < 5'd11)   nextstate = PLAYING;
                  else                      	  nextstate = ON;
 		ROARING: if (pattern_index < 5'd18)	  nextstate = ROARING;
 				 else						  nextstate = ON;
-        ON:		 if (~roar)					  nextstate = ROARING;
+        ON:		 if (roar)					  nextstate = ROARING;
 				 else						  nextstate = ON; 
         default:                              nextstate = OFF;
       endcase
