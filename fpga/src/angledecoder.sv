@@ -1,5 +1,6 @@
 module angledecoder(  input  logic        clk,
                       input  logic        reset,
+					  input  logic		  clk_enable,
                       input  logic        captouch,
                       input  logic        irblock,
                       input  logic        estop,
@@ -10,11 +11,14 @@ module angledecoder(  input  logic        clk,
 	statetype state, nextstate;
 
     always_ff @(posedge clk) begin
-		if (reset==0)		 begin
+		if (reset==0 || estop)		 begin
 			state <= CLOSED;
 		end
-		else				begin
+		else if (clk_enable) begin
 			state <= nextstate;
+		end
+		else				 begin
+			state <= state;
 		end
 	end
 
@@ -30,7 +34,8 @@ module angledecoder(  input  logic        clk,
                 else 				nextstate = OPENED;
             SLIGHT:
                 if (estop)          nextstate = CLOSED;
-                else                nextstate = OPENED;
+                else if (irblock)	nextstate = SLIGHT;
+				else				nextstate = OPENED;
             default: nextstate = CLOSED;
         endcase
     end
