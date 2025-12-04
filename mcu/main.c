@@ -9,12 +9,14 @@
 
 
 #include <stdint.h>
+#include <stddef.h>
 #include "main.h"
-#include "STM32L432KC_RCC.h"
-#include "STM32L432KC_FLASH.h"
-#include "STM32L432KC_USART.h"
-#include "STM32L432KC_GPIO.h"
-
+//#include "STM32L432KC_RCC.h"
+//#include "STM32L432KC_FLASH.h"
+//#include "STM32L432KC_USART.h"
+//#include "STM32L432KC_GPIO.h"
+//#include "STM32L432KC_TIM.h"
+//#include "STM32L432KC_ADC.h"
 
 // assuming ~80 MHz system clock after configureClock().
 static void delay_ms(uint32_t ms) {
@@ -113,18 +115,47 @@ int main(void) {
     configureFlash();
     configureClock();
 
+    gpioEnable(GPIO_PORT_A);
+    gpioEnable(GPIO_PORT_B);
+
+    // Enable PA0 as an Analog input pin for the ADC
+    pinMode(0, GPIO_ANALOG);
+    GPIOA->PUPDR |= _VAL2FLD(GPIO_PUPDR_PUPD0, 0b10); // Set PA0 as pull-down
+
+    // Enable PA8 as a GPIO input pin for the capsensor
+    pinMode(8, GPIO_INPUT);
+    GPIOA->PUPDR |= _VAL2FLD(GPIO_PUPDR_PUPD8, 0b10);
+
+    // Enable PA6 and PB3 as a GPIO output pin for an LED
+    pinMode(6, GPIO_OUTPUT);
+    GPIOA->PUPDR |= _VAL2FLD(GPIO_PUPDR_PUPD6, 0b10);
+    pinMode(19, GPIO_OUTPUT);
+    GPIOB->PUPDR |= _VAL2FLD(GPIO_PUPDR_PUPD3, 0b10);
+
+    // Enable PA12 as an E-Stop input pin
+    pinMode(12, GPIO_INPUT);
+    GPIOA->PUPDR |= _VAL2FLD(GPIO_PUPDR_PUPD12, 0b10);
+
+
+    // Initialize timer
+    enableAPB1_TIM2();
+    initTIM(DELAY_TIM);
+
+    // 1. Enable SYSCFG clock domain in RCC
+    enableAPB2_SYSCFG();
+
+    initADC();
+
     // initialize UARTs
-    // USART1: DFPlayer @ 9600 baud (PA9 = TX -> DFPlayer RX, PA10 = RX <- DFPlayer TX)
-    dfp_usart = initUSART(USART1_ID, 9600); // chooses PA9 and PA10 here
-
-    // setting volume
-    sendString(dbg_usart, "Setting volume\r\n");
-    DFP_SetVolume(20); // 0 to 30
-
     // USART2: debug console over ST-LINK VCP @ 115200 baud (opt baud)
     // send strings all on USART2 so it doesn't interfere with DFP pin send on USART1
     dbg_usart = initUSART(USART2_ID, 115200);
     sendString(dbg_usart, "Booting DFPlayer demo\r\n");
+
+    // USART1: DFPlayer @ 9600 baud (PA9 = TX -> DFPlayer RX, PA10 = RX <- DFPlayer TX)
+    dfp_usart = initUSART(USART1_ID, 9600); // chooses PA9 and PA10 here
+    sendString(dbg_usart, "DFPlayer USART1 init done\r\n");
+
 
     // wait for DFPlayer + TF card to finish power-on init.
     //    Datasheet says ~1.5–3 s depending on number of file ??
@@ -137,46 +168,104 @@ int main(void) {
     // datasheet says wait ~200 ms after selecting device before issuing track commands for model to initialize file info
     delay_ms(250);
 
+    // setting volume
+    sendString(dbg_usart, "Setting volume\r\n");
+    DFP_SetVolume(20); // 0 to 30
 
-    // Playback
-    // play by global track number
-    // DFP_PlayTrack(1);      // play track 1
+    typedef enum {
+    STATE_WAIT_FOR_CAP,
+    STATE_IR_MODE
+    } SystemState;
+    
+    SystemState state = STATE_WAIT_FOR_CAP;
 
-    // organizing files as /01/001.mp3 on TF card
-    sendString(dbg_usart, "Playing Test Drive\r\n");
-    DFP_PlayFolderTrack(1, 1);  // folder "01", file "001.mp3" datasheet has format written
+    while (1) {
+        // 1. E-STOP check (bring us back to beginning behavior)
+        int estop = digitalRead(12);
+        if (estop == 1) {
+            sendString(dbg_usart, "E-Stop pressed, resetting to WAIT_FOR_CAP\r\n");
+            DFP_Pause();                   // stop any playback
+            state = STATE_WAIT_FOR_CAP;    // go back to “beginning”
+            continue;                      // restart loop at WAIT_FOR_CAP
+        }
 
-    delay_ms(1000);
+        switch (state) {
+        case STATE_WAIT_FOR_CAP: {
+            int capvalue = digitalRead(8);
+            digitalWrite(19, capvalue);   // LED for capsense
+            digitalWrite(5, capvalue);    // to FPGA
 
-    //if (servomotor trigger the digitalRead() == 1??) {
-    sendString(dbg_usart, "Playing ROAR\r\n");
-    DFP_PlayFolderTrack(1, 2); 
-    //}
+            if (capvalue == 1) {
+                sendString(dbg_usart, "Playing Test Drive\r\n");
+                DFP_PlayFolderTrack(1, 1);
+                delay_ms(10000);
+                DFP_Pause();
 
+                // Now we are DONE watching cap, forever (until E-stop)
+                state = STATE_IR_MODE;
+            }
+            break;
+        }
 
-    //// main loop for later idle.
-    //while (1) {
-    //    // read buttons, send DFP_PlayTrack(), DFP_Pause(), etc. to connect w big model
-    //}
+        case STATE_IR_MODE: {
+            int irvalue = handdetection();
+            digitalWrite(6, irvalue);    // LED for IR
+            digitalWrite(21, irvalue);   // to FPGA
+
+            if (irvalue == 1) {
+                sendString(dbg_usart, "Playing ROAR\r\n");
+                DFP_PlayFolderTrack(1, 2);
+                delay_ms(2000);
+            }
+            break;
+        }
+        }
+    }
+      
+}
+
+int handdetection(void){
+    uint16_t value = readADC();
+
+    if (value > HIGH_THRESHOLD)
+        return 1;   // digital HIGH
+    else
+        return 0;   // digital LOW
 }
 
 
+// OLD CODE
+    //  int capvalue = digitalRead(8);
+    //  digitalWrite(19, capvalue); // see feedback on LED
+    //  digitalWrite(5, capvalue);  // send captouch value to FPGA
+      
+
+    //  if (capvalue == 1) {
+    //  sendString(dbg_usart, "Playing Test Drive\r\n");
+    //  DFP_PlayFolderTrack(1, 1);  // folder "01", file "001.mp3" datasheet has format written
+      
+    //  delay_ms(10000);
+
+    //  DFP_Pause();
+
+    //  }
+
+    //  while (1) {
+
+    //  int irvalue = handdetection();
+    //  digitalWrite(6, irvalue);  // see feedback on LED
+    //  digitalWrite(21, irvalue); // send irvalue to FPGA
+      
+
+    //  if (irvalue == 1) {
+    //    sendString(dbg_usart, "Playing ROAR\r\n");
+    //    DFP_PlayFolderTrack(1, 2);
+
+    //    delay_ms(2000);
+    //    }
+      
+    //  }
+
+    //}
 
 
-
-
-
-// NO SPI
-////initSPI(0b101, 0, 0); 
-////digitalWrite(SPI_CS, 1); // it's high when transmitting
-////spiSendReceive(0x7E); // START command
-////spiSendReceive(0xFF); // Version info
-////spiSendReceive(0x06); // data length not including parity
-////spiSendReceive(0x03); // representative No
-////spiSendReceive(0x00); // 00 dont need to return
-////spiSendReceive(0x00); // track high byte [DH]
-////spiSendReceive(0x01); // track low byte [DL]
-////spiSendReceive(0xFF); // checksum high byte for song 1
-////spiSendReceive(0xE6); // checksum low byte for song 1
-////spiSendReceive(0xEF); // END command
-////digitalWrite(SPI_CS, 0); // and then it turns off after done
