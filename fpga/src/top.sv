@@ -36,7 +36,7 @@ module top( input	logic reset,
     pwmgen pwm_generator(int_osc, reset, angle, pwm);
 	
 	clk_div clk_div(int_osc, reset, clk_enable);
-	led_pattern led_pattern(int_osc, reset, clk_enable, sync_captouch, sync_irblock, leds, led_strip);
+	led_pattern led_pattern(int_osc, reset, clk_enable, sync_captouch, sync_irblock, sync_estop, leds, led_strip);
 				
 endmodule
 
@@ -101,6 +101,7 @@ module led_pattern(
 	input  logic enable,
     input  logic play,  // Signal to play pattern
 	input  logic roar,
+	input logic estop,
     output logic [9:0] leds,
     output logic led_strip
 );
@@ -142,7 +143,7 @@ module led_pattern(
     // Cycle through patterns
 	
     always_ff @(posedge clk) begin
-      if (reset==0)     	begin
+		if (reset==0 || estop)     	begin
         state <= OFF;
         pattern_index <= 4'd0;
       end
