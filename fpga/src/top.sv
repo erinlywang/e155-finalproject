@@ -85,9 +85,9 @@ module pwmgen(  input  logic        clk,
     always_comb begin
         // PWM generation logic based on angle
         case (angle)
-			8'd30:     pwm = (counter < 32'd25000) ? 1'b1 : 1'b0; // 1ms pulse for 30 degrees
-			8'd150:    pwm = (counter < 32'd50000) ? 1'b1 : 1'b0; // 3ms pulse for 150 degrees (seems to be near upper limit)
-			8'd90:    pwm = (counter < 32'd38000) ? 1'b1 : 1'b0; // 2ms pulse for 90 degrees
+			8'd30:     pwm = (counter < 32'd36000) ? 1'b1 : 1'b0; // 1ms pulse for CLOSED
+			8'd150:    pwm = (counter < 32'd60000) ? 1'b1 : 1'b0; // 3ms pulse for OPEN (seems to be near upper limit)
+			8'd90:    pwm = (counter < 32'd45000) ? 1'b1 : 1'b0; // 2ms pulse for SLIGHT
             default:  pwm = 1'b0; // Default case
         endcase
     end    
