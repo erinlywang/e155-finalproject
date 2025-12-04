@@ -31,6 +31,10 @@ module toptest( input	logic reset,
 	end
 
     assign pwm = (counter < 32'd36000) ? 1'b1 : 1'b0; // 1ms pulse for 90 degrees
+	// 32'd36000 for mouth closed
+	// 32'd45000 for mouth partial closed
+	// 32'd60000 for mouth open
+			
 			
 	
 endmodule
